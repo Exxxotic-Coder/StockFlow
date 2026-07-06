@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="stockflowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#155EEF"/>
+      <stop offset="100%" stop-color="#14B8A6"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="192" height="192" rx="48" fill="url(#stockflowGradient)"/>
+  <!-- Flowing Upward Trend Line inside the icon -->
+  <path d="M45 137 Q 80 75, 105 105 T 155 55" fill="none" stroke="#FFFFFF" stroke-width="16" stroke-linecap="round"/>
+  <path d="M125 55 L155 55 L155 85" fill="none" stroke="#FFFFFF" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

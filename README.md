@@ -1,6 +1,6 @@
-# TradeX — Virtual Stock Trading & Analysis Platform
+# StockFlow — Virtual Stock Trading & Analysis Platform
 
-TradeX (also referred to as StockFlow) is a full-stack, monorepo MERN (MongoDB, Express, React, Node.js) stock trading platform. It features a public-facing marketing/landing site, a private trading dashboard (covering holdings, positions, orders, and funds management), and an AI-powered portfolio chat assistant that uses natural language to query and manage portfolios.
+StockFlow is a full-stack, monorepo MERN (MongoDB, Express, React, Node.js) stock trading platform. It features a public-facing marketing/landing site, a private trading dashboard (covering holdings, positions, orders, and funds management), and an AI-powered portfolio chat assistant that uses natural language to query and manage portfolios.
 
 Please try to implement the project on your own before proceeding to the lectures & code.
 
@@ -11,7 +11,7 @@ Please try to implement the project on your own before proceeding to the lecture
 The project is structured as a **monorepo** consisting of three main subsystems running on different ports:
 
 ```
-TradeX/
+StockFlow/
 ├── backend/      ← Node.js & Express server (Port 3002)
 ├── frontend/     ← React app for landing page, signup, login (Port 3001)
 └── dashboard/    ← React app for the main trading dashboard console (Port 3000)
@@ -48,7 +48,7 @@ TradeX/
 - **Deposit & Withdrawal:** Users can access the *Funds* tab to instantly add virtual funds to their wallet or withdraw cash, persisting balances securely in MongoDB.
 - **Buying & Selling:** Validates balances before executing trades. Successfully bought shares show up in *Holdings* and transaction logs are written to *Orders*.
 
-### 🤖 3. AI Portfolio Assistant (TradeX Assistant)
+### 🤖 3. AI Portfolio Assistant (StockFlow Assistant)
 - **Direct Database Analysis:** The assistant queries user portfolios directly using local regex parsing, allowing users to ask questions like *"What is my total investment?"* or *"Show all my holdings"*.
 - **Gemini 2.5/3.5 Flash:** Powered by Google's LLM engine. Uses context injection to phrase responses intelligently without exposing raw database endpoints to the AI.
 - **Graceful Failures:** If the API key is not configured or fails, the assistant switches to returning clean raw database metrics directly to keep the chatbot functional.

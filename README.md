@@ -117,7 +117,7 @@ Below is a summary of the fixes and updates completed to bring the project into 
 - Verified backend authentication and AI chat endpoints work correctly.
 
 ### 3. Dashboard Fixes
-- Enlarged the TradeX logo in the dashboard sidebar.
+- Enlarged the StockFlow logo in the dashboard sidebar.
 - Fixed the logo image asset path to prevent broken links on inner dashboard routes.
 - Fixed dashboard API endpoints to use correct host-based routing (preventing hard-coded localhost 404s).
 - Repaired the chat widget to request correct backend chat routes.

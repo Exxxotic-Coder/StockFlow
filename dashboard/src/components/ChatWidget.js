@@ -47,11 +47,14 @@ const ChatWidget = () => {
         { role: "assistant", text: replyText, timestamp: new Date() },
       ]);
     } catch (err) {
+      const errorText = err.response?.status === 401
+        ? "Your login session has expired. Please log in again to use the assistant."
+        : "AI assistant is currently unavailable. Please check that the backend and Gemini configuration are running.";
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          text: "⚠️ AI assistant is currently unavailable. This usually means the Gemini API key needs to be set up in the backend `.env` file. Please contact the administrator or check the backend configuration.",
+          text: `⚠️ ${errorText}`,
           timestamp: new Date(),
         },
       ]);

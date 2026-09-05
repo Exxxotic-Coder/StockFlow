@@ -19,10 +19,21 @@ const PORT = process.env.PORT || 3002;
 const uri = process.env.MONGO_URL;
 const isProduction = process.env.NODE_ENV === "production";
 const sessionSecret = process.env.SESSION_SECRET;
-const allowedOrigins = (process.env.CLIENT_ORIGINS || "http://localhost:3000,http://localhost:3001")
+const configuredOrigins = (process.env.CLIENT_ORIGINS || "")
   .split(",")
-  .map((origin) => origin.trim())
+  .map((origin) => origin.trim().replace(/\/+$/, ""))
   .filter(Boolean);
+const localOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:3002",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3001",
+  "http://127.0.0.1:3002",
+];
+const allowedOrigins = isProduction
+  ? configuredOrigins
+  : [...new Set([...configuredOrigins, ...localOrigins])];
 
 if (isProduction && (!sessionSecret || sessionSecret.length < 32)) {
   throw new Error("SESSION_SECRET must be at least 32 characters in production");
@@ -36,8 +47,11 @@ const app = express();
 if (isProduction) app.set("trust proxy", 1);
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error("Origin is not allowed by CORS"));
+    const normalizedOrigin = origin?.replace(/\/+$/, "");
+    if (!normalizedOrigin || localOrigins.includes(normalizedOrigin) || allowedOrigins.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Origin is not allowed by CORS: ${origin}`));
   },
   credentials: true,
 }));

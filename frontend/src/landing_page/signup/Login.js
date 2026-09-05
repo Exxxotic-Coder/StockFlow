@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 
 function Login() {
-  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3002";
+  const apiUrl = (process.env.REACT_APP_API_URL || "http://localhost:3002").replace(/\/+$/, "");
   const dashboardUrl = process.env.REACT_APP_DASHBOARD_URL || "http://localhost:3000";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");

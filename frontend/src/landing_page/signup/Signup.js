@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 
 function Signup() {
-  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3002";
+  const apiUrl = (process.env.REACT_APP_API_URL || "http://localhost:3002").replace(/\/+$/, "");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

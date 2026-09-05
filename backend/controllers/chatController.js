@@ -13,6 +13,8 @@ const { parseIntent } = require("../services/intentService");
 const { askGemini } = require("../services/geminiService");
 const holdingsService = require("../services/holdingsService");
 const positionsOrdersService = require("../services/positionsOrdersService");
+const { fetchPrice } = require("../services/livePriceService");
+const { UserModel } = require("../model/UserModel");
 
 const SYSTEM_PREAMBLE =
   "You are the StockFlow portfolio assistant, a helpful voice inside a stock " +
@@ -20,6 +22,17 @@ const SYSTEM_PREAMBLE =
   "using ONLY the information provided below. Never invent numbers, stock " +
   "names, or facts that are not given to you. Use ₹ for currency amounts. " +
   "Keep the reply short (a few sentences, or a short bullet list).";
+
+const PRODUCT_CONTEXT =
+  "StockFlow is a virtual stock-trading practice platform, not a brokerage and " +
+  "not a place to buy real shares. Users create an account with virtual funds, " +
+  "view market prices and NIFTY 50/SENSEX indicators, buy and sell simulated NSE " +
+  "shares, and review holdings, open positions, orders, funds, investment value, " +
+  "and profit or loss. The app can fetch current market quotes when the market-data " +
+  "provider is available; quotes may be delayed or unavailable when the market is " +
+  "closed. The assistant can answer questions about the authenticated user's own " +
+  "portfolio and can perform supported holding actions such as changing quantity " +
+  "or deleting a holding.";
 
 function formatHoldingLine(h) {
   return `${h.name}: qty ${h.qty}, avg ₹${Number(h.avg).toFixed(2)}, price ₹${Number(h.price).toFixed(2)}`;
@@ -41,10 +54,20 @@ async function askGeminiSafely(userMessage, dataSummary) {
   }
 }
 
-async function handleGeneralQuestion(userMessage) {
+async function handleGeneralQuestion(userMessage, username, history = []) {
   const prompt =
     `${SYSTEM_PREAMBLE}\n\nThis is a general question unrelated to the user's ` +
-    `specific portfolio data. Answer it directly and helpfully.\n\nUser asked:\n${userMessage}`;
+    `specific portfolio data. Answer it directly and helpfully. Use the following ` +
+    `product information when the question is about StockFlow:\n${PRODUCT_CONTEXT}\n\n` +
+    `The authenticated ` +
+    `account username is "${username || "unknown"}". If the user asks whether ` +
+    `you know their name, refer to this username, but do not claim to know ` +
+    `private personal details beyond it. Use the recent conversation to understand ` +
+    `short follow-ups such as "yeah tell". Answer the question instead of asking ` +
+    `what topic they mean. Give a fuller explanation when the user asks for detail. ` +
+    `Do not say you lack information about StockFlow when the product information ` +
+    `above answers the question.\n\nRecent conversation:\n${history.join("\n") || "None"}` +
+    `\n\nUser asked:\n${userMessage}`;
   try {
     const reply = await askGemini(prompt);
     return reply;
@@ -59,8 +82,8 @@ async function handleGeneralQuestion(userMessage) {
 
 async function handleChat(req, res) {
   try {
-    const { message } = req.body || {};
-    const username = req.body?.username || req.query?.username;
+    const { message, history } = req.body || {};
+    const username = req.authenticatedUsername;
 
     if (!message || typeof message !== "string" || !message.trim()) {
       return res.status(400).json({ reply: "Please type a message to send." });
@@ -70,7 +93,7 @@ async function handleChat(req, res) {
 
     // General knowledge / conversational — no DB involved at all.
     if (intent.type === "GENERAL") {
-      const reply = await handleGeneralQuestion(message);
+      const reply = await handleGeneralQuestion(message, username, Array.isArray(history) ? history.slice(-8) : []);
       return res.status(200).json({ reply });
     }
 
@@ -80,6 +103,17 @@ async function handleChat(req, res) {
         reply: "I couldn't tell which account this is for. Please log in and try again.",
       });
     }
+
+    // Refresh stored holding prices before calculating portfolio answers.
+    const holdings = await holdingsService.getAllHoldings(username);
+    await Promise.allSettled(holdings.map(async (holding) => {
+      try {
+        holding.price = await fetchPrice(holding.name);
+        await holding.save();
+      } catch (_) {
+        // Keep the last known price when Yahoo has no quote for a symbol.
+      }
+    }));
 
     let dataSummary;
     let reply;
@@ -150,6 +184,19 @@ async function handleChat(req, res) {
       case "PORTFOLIO_VALUE": {
         const value = await holdingsService.getPortfolioValue(username);
         dataSummary = `Current portfolio value: ₹${value.toFixed(2)}`;
+        break;
+      }
+
+      case "TOTAL_EQUITY": {
+        const [user, value] = await Promise.all([
+          UserModel.findOne({ username }).select("funds"),
+          holdingsService.getPortfolioValue(username),
+        ]);
+        const cash = user?.funds || 0;
+        dataSummary =
+          `Total equity: ₹${(cash + value).toFixed(2)}\n` +
+          `Available cash: ₹${cash.toFixed(2)}\n` +
+          `Current holdings value: ₹${value.toFixed(2)}`;
         break;
       }
 
@@ -333,7 +380,7 @@ async function handleChat(req, res) {
 
       default: {
         // Shouldn't happen, but fail safe by forwarding to general Q&A.
-        reply = await handleGeneralQuestion(message);
+        reply = await handleGeneralQuestion(message, username);
       }
     }
 

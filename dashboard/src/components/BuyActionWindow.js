@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import GeneralContext from "./GeneralContext";
@@ -15,6 +15,14 @@ const BuyActionWindow = ({ uid, mode = "BUY" }) => {
   const [stockPrice, setStockPrice] = useState(initialPrice);
   const [errorMsg, setErrorMsg] = useState("");
   const generalContext = useContext(GeneralContext);
+
+  useEffect(() => {
+    axios.get(`/livePrices?symbols=${encodeURIComponent(uid)}`)
+      .then((res) => {
+        if (res.data?.[uid] !== undefined) setStockPrice(res.data[uid]);
+      })
+      .catch(() => {});
+  }, [uid]);
 
   const handleTransactionClick = () => {
     setErrorMsg("");

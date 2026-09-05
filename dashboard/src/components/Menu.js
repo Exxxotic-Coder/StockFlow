@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 
 import { Link } from "react-router-dom";
+import axios from "axios";
 
 const Menu = () => {
+  const frontendUrl = process.env.REACT_APP_FRONTEND_URL || "http://localhost:3001";
   const [selectedMenu, setSelectedMenu] = useState(0);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
@@ -17,10 +19,11 @@ const Menu = () => {
   const menuClass = "menu";
   const activeMenuClass = "menu selected";
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await axios.post("/logout").catch(() => {});
     localStorage.removeItem("username");
     // Redirect back to the landing page (frontend on port 3001)
-    window.location.href = "http://localhost:3001";
+    window.location.href = frontendUrl;
   };
 
   return (

@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 
 function Login() {
+  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3002";
+  const dashboardUrl = process.env.REACT_APP_DASHBOARD_URL || "http://localhost:3000";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -13,8 +15,9 @@ function Login() {
     setSuccess("");
 
     try {
-      const response = await fetch("http://localhost:3002/login", {
+      const response = await fetch(`${apiUrl}/login`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -25,8 +28,7 @@ function Login() {
 
       if (data.success) {
         setSuccess("Login successful! Redirecting to dashboard...");
-        localStorage.setItem("username", data.username);
-        window.location.href = `http://localhost:3000?username=${data.username}`;
+        window.location.href = dashboardUrl;
       } else {
         setError(data.error || "Login failed. Invalid username or password.");
       }

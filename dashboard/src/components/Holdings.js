@@ -18,7 +18,7 @@ const Holdings = () => {
       .get(`/livePrices?symbols=${encodeURIComponent(symbols)}`)
       .then((res) => {
         setLivePrices(res.data || {});
-        setPriceStatus("live");
+        setPriceStatus(Object.keys(res.data || {}).length ? "live" : "error");
         setLastUpdated(new Date());
       })
       .catch(() => {

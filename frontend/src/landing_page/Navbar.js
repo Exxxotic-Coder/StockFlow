@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 
 function Navbar() {
+  const dashboardUrl = process.env.REACT_APP_DASHBOARD_URL || "http://localhost:3000";
   const [username, setUsername] = useState(localStorage.getItem("username"));
   const navigate = useNavigate();
   const location = useLocation();
@@ -98,7 +99,7 @@ function Navbar() {
               <li className="nav-item">
                 <a
                   className="nav-link active fw-semibold text-primary"
-                  href={username ? `http://localhost:3000?username=${username}` : "http://localhost:3000"}
+                  href={dashboardUrl}
                   style={{ marginLeft: "30px" }}
                 >
                   Dashboard <i className="fa-solid fa-arrow-up-right-from-square small"></i>

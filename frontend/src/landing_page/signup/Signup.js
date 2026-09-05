@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 
 function Signup() {
+  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3002";
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -15,7 +16,7 @@ function Signup() {
     setSuccess("");
 
     try {
-      const response = await fetch("http://localhost:3002/signup", {
+      const response = await fetch(`${apiUrl}/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

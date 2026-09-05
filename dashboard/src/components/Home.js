@@ -3,27 +3,22 @@ import React, { useEffect, useState } from "react";
 import Dashboard from "./Dashboard";
 import TopBar from "./TopBar";
 import ChatWidget from "./ChatWidget";
+import axios from "axios";
 
 const Home = () => {
+  const frontendUrl = process.env.REACT_APP_FRONTEND_URL || "http://localhost:3001";
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const usernameParam = params.get("username");
-
-    if (usernameParam) {
-      localStorage.setItem("username", usernameParam);
-      window.history.replaceState({}, document.title, window.location.pathname);
-      setIsAuthenticated(true);
-      return;
-    }
-
-    const storedUser = localStorage.getItem("username");
-    if (storedUser) {
-      setIsAuthenticated(true);
-    } else {
-      window.location.href = "http://localhost:3001/login";
-    }
+    axios.get("/me")
+      .then((res) => {
+        localStorage.setItem("username", res.data.username);
+        setIsAuthenticated(true);
+      })
+      .catch(() => {
+        localStorage.removeItem("username");
+        window.location.href = `${frontendUrl}/login`;
+      });
   }, []);
 
   if (!isAuthenticated) {

@@ -32,7 +32,7 @@ async function askGemini(prompt) {
         ],
         generationConfig: {
           temperature: 0.4,
-          maxOutputTokens: 512,
+          maxOutputTokens: 1024,
         },
       }),
     });

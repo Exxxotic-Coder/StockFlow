@@ -35,12 +35,10 @@ const ChatWidget = () => {
     setInput("");
     setIsLoading(true);
 
-    const username = localStorage.getItem("username");
-
     try {
       const res = await axios.post("/api/chat", {
         message: trimmed,
-        username,
+        history: messages.slice(-8).map((msg) => `${msg.role}: ${msg.text}`),
       });
       const replyText =
         res?.data?.reply || "Sorry, I didn't get a response. Please try again.";

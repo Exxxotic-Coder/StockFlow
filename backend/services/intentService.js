@@ -114,6 +114,7 @@ function parseIntent(rawMessage) {
 
   if (/total investment/i.test(m)) return { type: "TOTAL_INVESTMENT" };
   if (/portfolio value|current value of.*portfolio/i.test(m)) return { type: "PORTFOLIO_VALUE" };
+  if (/\b(equity|net worth|total account value)\b/i.test(m)) return { type: "TOTAL_EQUITY" };
   if (/today'?s?\s*(p ?& ?l|p ?and ?l|pnl|profit\s*(and|\/)?\s*loss)/i.test(m)) return { type: "TODAYS_PNL" };
 
   if (/^(show|list|view)\s+(all\s+)?(my\s+)?holdings?$/i.test(m) || /^holdings$/i.test(m)) {

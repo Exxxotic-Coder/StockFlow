@@ -100,7 +100,7 @@ function Footer() {
             {[
               { label: "Sign Up", to: "/signup" },
               { label: "Login", to: "/login" },
-              { label: "Dashboard", to: "#", href: "http://localhost:3000" },
+              { label: "Dashboard", to: "#", href: process.env.REACT_APP_DASHBOARD_URL || "http://localhost:3000" },
             ].map((link) =>
               link.href ? (
                 <div key={link.label} style={{ marginBottom: "10px" }}>

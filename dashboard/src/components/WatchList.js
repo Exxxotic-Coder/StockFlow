@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 
 import axios from "axios";
 
@@ -20,6 +20,25 @@ import { DoughnutChart } from "./DoughnoutChart";
 
 const WatchList = () => {
   const [stocks, setStocks] = useState(watchlist);
+
+  useEffect(() => {
+    const symbols = watchlist.map((stock) => stock.name).join(",");
+    const refreshPrices = () => {
+      axios.get(`/livePrices?symbols=${encodeURIComponent(symbols)}`)
+        .then((res) => {
+          const prices = res.data || {};
+          setStocks((current) => current.map((stock) => ({
+            ...stock,
+            price: prices[stock.name] ?? stock.price,
+          })));
+        })
+        .catch(() => {});
+    };
+
+    refreshPrices();
+    const timer = setInterval(refreshPrices, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <div className="watchlist-container">

@@ -4,25 +4,69 @@ const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const session = require("express-session");
+const { MongoStore } = require("connect-mongo");
 
 const { HoldingsModel } = require("./model/HoldingsModel");
 const { PositionsModel } = require("./model/PositionsModel");
 const { OrdersModel } = require("./model/OrdersModel");
 const { UserModel } = require("./model/UserModel");
 const chatRoutes = require("./routes/chatRoutes");
+const { requireAuth } = require("./middleware/auth");
+const { getLivePrices } = require("./services/livePriceService");
 
 const PORT = process.env.PORT || 3002;
 const uri = process.env.MONGO_URL;
+const isProduction = process.env.NODE_ENV === "production";
+const sessionSecret = process.env.SESSION_SECRET;
+const allowedOrigins = (process.env.CLIENT_ORIGINS || "http://localhost:3000,http://localhost:3001")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+if (isProduction && (!sessionSecret || sessionSecret.length < 32)) {
+  throw new Error("SESSION_SECRET must be at least 32 characters in production");
+}
+if (!uri) {
+  throw new Error("MONGO_URL is required");
+}
 
 const app = express();
 
-app.use(cors());
+if (isProduction) app.set("trust proxy", 1);
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("Origin is not allowed by CORS"));
+  },
+  credentials: true,
+}));
 app.use(bodyParser.json());
+app.use(session({
+  secret: sessionSecret || "local-development-session-secret-change-me",
+  store: MongoStore.create({ mongoUrl: uri, collectionName: "sessions" }),
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: isProduction ? "none" : "lax",
+    secure: isProduction,
+    maxAge: 24 * 60 * 60 * 1000,
+  },
+}));
 
 // AI chatbot (independent feature, does not alter any existing routes)
 app.use(chatRoutes);
 
-app.get("/addHoldings", async (req, res) => {
+app.get("/me", requireAuth, (req, res) => {
+  res.json({ success: true, username: req.authenticatedUsername });
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", database: mongoose.connection.readyState === 1 ? "connected" : "connecting" });
+});
+
+app.get("/addHoldings", requireAuth, async (req, res) => {
   let tempHoldings = [
     {
       name: "BHARTIARTL",
@@ -135,7 +179,7 @@ app.get("/addHoldings", async (req, res) => {
     },
   ];
 
-  const { username } = req.query;
+  const username = req.authenticatedUsername;
   tempHoldings.forEach((item) => {
     let newHolding = new HoldingsModel({
       username: username || undefined,
@@ -152,7 +196,7 @@ app.get("/addHoldings", async (req, res) => {
   res.send("Done!");
 });
 
-app.get("/addPositions", async (req, res) => {
+app.get("/addPositions", requireAuth, async (req, res) => {
   let tempPositions = [
     {
       product: "CNC",
@@ -176,7 +220,7 @@ app.get("/addPositions", async (req, res) => {
     },
   ];
 
-  const { username } = req.query;
+  const username = req.authenticatedUsername;
   tempPositions.forEach((item) => {
     let newPosition = new PositionsModel({
       username: username || undefined,
@@ -223,16 +267,20 @@ app.post("/login", async (req, res) => {
     if (!user) {
       return res.status(401).json({ success: false, error: options ? options.message : "Invalid username or password" });
     }
+    req.session.username = user.username;
     res.status(200).json({ success: true, username: user.username });
   });
 });
 
+app.post("/logout", (req, res) => {
+  req.session.destroy(() => res.json({ success: true }));
+});
+
+app.use(requireAuth);
+
 // Wallet funds endpoint
 app.get("/funds", async (req, res) => {
-  const { username } = req.query;
-  if (!username) {
-    return res.status(400).json({ error: "Username is required" });
-  }
+  const username = req.authenticatedUsername;
   try {
     const user = await UserModel.findOne({ username });
     if (!user) {
@@ -255,30 +303,21 @@ app.get("/funds", async (req, res) => {
 
 // Get User-specific Holdings
 app.get("/allHoldings", async (req, res) => {
-  const { username } = req.query;
-  if (!username) {
-    return res.status(400).json({ error: "Username is required" });
-  }
+  const username = req.authenticatedUsername;
   let allHoldings = await HoldingsModel.find({ username });
   res.json(allHoldings);
 });
 
 // Get User-specific Positions
 app.get("/allPositions", async (req, res) => {
-  const { username } = req.query;
-  if (!username) {
-    return res.status(400).json({ error: "Username is required" });
-  }
+  const username = req.authenticatedUsername;
   let allPositions = await PositionsModel.find({ username });
   res.json(allPositions);
 });
 
 // Get User-specific Orders History
 app.get("/allOrders", async (req, res) => {
-  const { username } = req.query;
-  if (!username) {
-    return res.status(400).json({ error: "Username is required" });
-  }
+  const username = req.authenticatedUsername;
   let allOrders = await OrdersModel.find({ username });
   res.json(allOrders);
 });
@@ -413,43 +452,8 @@ app.get("/livePrices", async (req, res) => {
   if (!symbols) return res.status(400).json({ error: "symbols required" });
 
   const symbolList = [...new Set(symbols.split(",").map((s) => s.trim()).filter(Boolean))];
-  const prices = {};
-  const now = Date.now();
-
-  // Serve from cache for recently-fetched symbols
-  const toFetch = symbolList.filter((sym) => {
-    if (priceCache[sym] && now - priceCache[sym].ts < PRICE_CACHE_TTL) {
-      prices[sym] = priceCache[sym].price;
-      return false;
-    }
-    return true;
-  });
-
-  // Fetch uncached symbols in parallel from Yahoo Finance
-  await Promise.allSettled(
-    toFetch.map(async (sym) => {
-      try {
-        // Yahoo Finance NSE symbols: INFY→INFY.NS, M&M→M%26M.NS
-        const yahooSym = sym.replace(/&/g, "%26") + ".NS";
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSym}?interval=1d&range=1d`;
-        const r = await fetch(url, {
-          headers: { "User-Agent": "Mozilla/5.0" },
-          signal: AbortSignal.timeout(6000),
-        });
-        if (!r.ok) return;
-        const data = await r.json();
-        const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
-        if (price && price > 0) {
-          prices[sym] = price;
-          priceCache[sym] = { price, ts: now };
-        }
-      } catch (_) {
-        // Symbol not found on Yahoo Finance (e.g. Gold Bonds) — skip silently
-        // Frontend will fall back to the stored DB price
-      }
-    })
-  );
-
+  const prices = await getLivePrices(symbolList, priceCache, PRICE_CACHE_TTL);
+  res.set("X-Live-Price-Count", String(Object.keys(prices).length));
   res.json(prices);
 });
 
@@ -486,12 +490,14 @@ app.get("/marketdata", async (req, res) => {
     res.json(marketCache);
   } catch (err) {
     // Return last cached values or safe fallback — never crash the dashboard
-    res.json(marketCache.nifty ? marketCache : { nifty: { price: "N/A", change: "--", isDown: false }, sensex: { price: "N/A", change: "--", isDown: false } });
+    console.error("Market data unavailable:", err.message);
+    res.status(503).json(marketCache.nifty ? { ...marketCache, source: "cached", error: "Yahoo Finance unavailable" } : { source: "unavailable", error: "Yahoo Finance unavailable", nifty: { price: "N/A", change: "--", isDown: false }, sensex: { price: "N/A", change: "--", isDown: false } });
   }
 });
 
 app.listen(PORT, () => {
   console.log("App started!");
-  mongoose.connect(uri);
-  console.log("DB started!");
+  mongoose.connect(uri)
+    .then(() => console.log("DB connected!"))
+    .catch((err) => console.error("DB connection failed:", err.message));
 });
